@@ -1,24 +1,49 @@
-import { FC, useMemo } from 'react';
+import { FC, useEffect, useMemo, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { Preloader } from '../ui/preloader';
 import { OrderInfoUI } from '../ui/order-info';
 import { TIngredient } from '@utils-types';
+import { useDispatch, useSelector } from '../../services/store';
+import { fetchOrderByNumber } from '../../services/orders/slice';
+import {
+  selectIngredients,
+  selectOrderInfo,
+  selectOrderInfoLoading,
+  selectOrders,
+  selectProfileOrders
+} from '../../services/selectors';
 
 export const OrderInfo: FC = () => {
-  /** TODO: взять переменные orderData и ingredients из стора */
-  const orderData = {
-    createdAt: '',
-    ingredients: [],
-    _id: '',
-    status: '',
-    name: '',
-    updatedAt: 'string',
-    number: 0
-  };
+  const { number } = useParams<{ number: string }>();
+  const dispatch = useDispatch();
+  const fetchAttemptedRef = useRef(false);
 
-  const ingredients: TIngredient[] = [];
+  const feedsOrders = useSelector(selectOrders);
+  const profileOrderList = useSelector(selectProfileOrders);
+  const orderInfo = useSelector(selectOrderInfo);
+  const isOrderInfoLoading = useSelector(selectOrderInfoLoading);
+  const ingredients = useSelector(selectIngredients);
 
-  /* Готовим данные для отображения */
-  const orderInfo = useMemo(() => {
+  const orderNumber = Number(number);
+
+  const orderFromFeeds = feedsOrders.find(
+    (order) => order.number === orderNumber
+  );
+  const orderFromProfile = profileOrderList.find(
+    (order) => order.number === orderNumber
+  );
+  const orderFromStore = orderInfo?.number === orderNumber ? orderInfo : null;
+
+  const orderData = orderFromFeeds || orderFromProfile || orderFromStore;
+
+  useEffect(() => {
+    if (!orderData && !isOrderInfoLoading && !fetchAttemptedRef.current) {
+      fetchAttemptedRef.current = true;
+      dispatch(fetchOrderByNumber(orderNumber));
+    }
+  }, [dispatch, orderNumber, orderData, isOrderInfoLoading]);
+
+  const orderInfoProcessed = useMemo(() => {
     if (!orderData || !ingredients.length) return null;
 
     const date = new Date(orderData.createdAt);
@@ -59,9 +84,9 @@ export const OrderInfo: FC = () => {
     };
   }, [orderData, ingredients]);
 
-  if (!orderInfo) {
+  if (!orderInfoProcessed) {
     return <Preloader />;
   }
 
-  return <OrderInfoUI orderInfo={orderInfo} />;
+  return <OrderInfoUI orderInfo={orderInfoProcessed} />;
 };
