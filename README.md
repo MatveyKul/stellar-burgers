@@ -17,3 +17,24 @@
 ## Важно:
 
 Для корректной работы запросов к серверу необходимо добавить переменную BURGER_API_URL в окружение. Сама ссылка находится в файле `.env.example`.
+
+## Тесты
+
+Проект покрыт юнит-тестами Jest и e2e-тестами Playwright.
+
+```bash
+# Юнит-тесты Jest
+npm test
+
+# Юнит-тесты Jest с отчётом о покрытии (папка coverage)
+npm run test:coverage
+
+# E2E-тесты Playwright (перед первым запуском: npx playwright install chromium)
+npm run test:playwright
+```
+
+Jest-тесты слайсов, редьюсеров и селекторов лежат в `src/services/__tests__`.
+E2E-тесты страницы «Конструктор» — в `tests/constructor.pl.tsx`.
+Ответы бэкенда для e2e-тестов лежат в `tests/hars` и подключаются через `page.routeFromHAR`.
+Playwright сам запускает dev-сервер на `http://localhost:4000`.
+
