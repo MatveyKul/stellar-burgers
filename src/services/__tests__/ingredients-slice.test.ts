@@ -26,57 +26,138 @@ describe('ingredients slice', () => {
     jest.clearAllMocks();
   });
 
-  test('возвращает начальное состояние', () => {
-    const store = createTestStore();
+  describe('ingredientsReducer: неизвестный экшен', () => {
+    test('возвращает начальное состояние при вызове с неизвестным экшеном', () => {
+      expect(ingredientsReducer(undefined, { type: 'UNKNOWN' })).toEqual(
+        initialState
+      );
+    });
 
-    expect(getState(store)).toEqual(initialState);
-  });
+    test('не изменяет подготовленное состояние при неизвестном экшене', () => {
+      const state = {
+        ingredients: [bun],
+        isIngredientsLoading: true,
+        error: 'Старая ошибка'
+      };
 
-  test('возвращает начальное состояние при вызове с неизвестным экшеном', () => {
-    expect(ingredientsReducer(undefined, { type: 'UNKNOWN' })).toEqual(
-      initialState
-    );
-  });
-
-  test('fetchIngredients переводит состояние в pending', () => {
-    mockedGetIngredientsApi.mockReturnValue(pending());
-
-    const store = createTestStore();
-    store.dispatch(fetchIngredients());
-
-    expect(getState(store)).toEqual({
-      ingredients: [],
-      isIngredientsLoading: true,
-      error: null
+      expect(ingredientsReducer(state, { type: 'UNKNOWN' })).toEqual(state);
     });
   });
 
-  test('fetchIngredients сохраняет ингредиенты при fulfilled', async () => {
-    const ingredients = [bun, main];
-    mockedGetIngredientsApi.mockResolvedValue(ingredients);
+  describe('ingredientsReducer: fetchIngredients.pending', () => {
+    test('включает загрузку и сбрасывает ошибку', () => {
+      const state = {
+        ingredients: [bun],
+        isIngredientsLoading: false,
+        error: 'Старая ошибка'
+      };
 
-    const store = createTestStore();
-    await store.dispatch(fetchIngredients());
+      const nextState = ingredientsReducer(
+        state,
+        fetchIngredients.pending('request-id')
+      );
 
-    expect(getState(store)).toEqual({
-      ingredients,
-      isIngredientsLoading: false,
-      error: null
+      expect(nextState).toEqual({
+        ingredients: [bun],
+        isIngredientsLoading: true,
+        error: null
+      });
     });
   });
 
-  test('fetchIngredients сохраняет ошибку при rejected', async () => {
-    mockedGetIngredientsApi.mockRejectedValue(
-      new Error('Ошибка загрузки ингредиентов')
-    );
+  describe('ingredientsReducer: fetchIngredients.fulfilled', () => {
+    test('сохраняет ингредиенты и выключает загрузку', () => {
+      const ingredients = [bun, main];
+      const state = {
+        ingredients: [],
+        isIngredientsLoading: true,
+        error: null
+      };
 
-    const store = createTestStore();
-    await store.dispatch(fetchIngredients()).catch(() => undefined);
+      const nextState = ingredientsReducer(
+        state,
+        fetchIngredients.fulfilled(ingredients, 'request-id')
+      );
 
-    expect(getState(store)).toEqual({
-      ingredients: [],
-      isIngredientsLoading: false,
-      error: 'Ошибка загрузки ингредиентов'
+      expect(nextState).toEqual({
+        ingredients,
+        isIngredientsLoading: false,
+        error: null
+      });
+    });
+  });
+
+  describe('ingredientsReducer: fetchIngredients.rejected', () => {
+    test('сохраняет ошибку и выключает загрузку', () => {
+      const state = {
+        ingredients: [],
+        isIngredientsLoading: true,
+        error: null
+      };
+
+      const nextState = ingredientsReducer(
+        state,
+        fetchIngredients.rejected(
+          new Error('Ошибка загрузки ингредиентов'),
+          'request-id'
+        )
+      );
+
+      expect(nextState).toEqual({
+        ingredients: [],
+        isIngredientsLoading: false,
+        error: 'Ошибка загрузки ингредиентов'
+      });
+    });
+  });
+
+  describe('интеграционные тесты через store', () => {
+    test('возвращает начальное состояние', () => {
+      const store = createTestStore();
+
+      expect(getState(store)).toEqual(initialState);
+    });
+
+    test('fetchIngredients переводит состояние в pending', () => {
+      mockedGetIngredientsApi.mockReturnValue(pending());
+
+      const store = createTestStore();
+      store.dispatch(fetchIngredients());
+
+      expect(getState(store)).toEqual({
+        ingredients: [],
+        isIngredientsLoading: true,
+        error: null
+      });
+    });
+
+    test('fetchIngredients сохраняет ингредиенты при fulfilled', async () => {
+      const ingredients = [bun, main];
+      mockedGetIngredientsApi.mockResolvedValue(ingredients);
+
+      const store = createTestStore();
+      await store.dispatch(fetchIngredients());
+
+      expect(getState(store)).toEqual({
+        ingredients,
+        isIngredientsLoading: false,
+        error: null
+      });
+    });
+
+    test('fetchIngredients сохраняет ошибку при rejected', async () => {
+      mockedGetIngredientsApi.mockRejectedValue(
+        new Error('Ошибка загрузки ингредиентов')
+      );
+
+      const store = createTestStore();
+      await store.dispatch(fetchIngredients()).catch(() => undefined);
+
+      expect(getState(store)).toEqual({
+        ingredients: [],
+        isIngredientsLoading: false,
+        error: 'Ошибка загрузки ингредиентов'
+      });
     });
   });
 });
