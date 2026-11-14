@@ -1,5 +1,5 @@
 import path from 'path';
-import { test, expect, BrowserContext, Page } from '@playwright/test';
+import { test, expect, BrowserContext, Page, Locator } from '@playwright/test';
 
 const HAR_DIR = path.join(__dirname, 'hars');
 
@@ -73,9 +73,20 @@ const openConstructorPage = async (
   ).toBeVisible();
 };
 
-const addIngredient = async (page: Page, index: number) => {
-  await page.getByRole('button', { name: 'Добавить' }).nth(index).click();
+const getIngredientCard = (page: Page, name: string | RegExp) =>
+  page
+    .locator('li')
+    .filter({ hasText: name })
+    .filter({ has: page.getByRole('button', { name: 'Добавить' }) });
+
+const addIngredient = async (page: Page, name: string | RegExp) => {
+  await getIngredientCard(page, name)
+    .getByRole('button', { name: 'Добавить' })
+    .click();
 };
+
+const getNutritionValue = (modal: Locator, label: string) =>
+  modal.locator('li').filter({ hasText: label }).locator('p').last();
 
 test.describe('Страница «Конструктор»: модальное окно ингредиента', () => {
   test('открывает модальное окно с описанием выбранного ингредиента', async ({
@@ -101,14 +112,18 @@ test.describe('Страница «Конструктор»: модальное �
 
     const modal = page.locator('#modals');
     await expect(modal).toContainText(sauce.name);
-    await expect(modal).toContainText('Калории, ккал');
-    await expect(modal).toContainText(String(sauce.calories));
-    await expect(modal).toContainText('Белки, г');
-    await expect(modal).toContainText(String(sauce.proteins));
-    await expect(modal).toContainText('Жиры, г');
-    await expect(modal).toContainText(String(sauce.fat));
-    await expect(modal).toContainText('Углеводы, г');
-    await expect(modal).toContainText(String(sauce.carbohydrates));
+    await expect(getNutritionValue(modal, 'Калории, ккал')).toHaveText(
+      String(sauce.calories)
+    );
+    await expect(getNutritionValue(modal, 'Белки, г')).toHaveText(
+      String(sauce.proteins)
+    );
+    await expect(getNutritionValue(modal, 'Жиры, г')).toHaveText(
+      String(sauce.fat)
+    );
+    await expect(getNutritionValue(modal, 'Углеводы, г')).toHaveText(
+      String(sauce.carbohydrates)
+    );
     await expect(modal).not.toContainText(bun.name);
   });
 
@@ -129,7 +144,8 @@ test.describe('Страница «Конструктор»: модальное �
     await page.getByRole('link', { name: /Краторная булка/ }).click();
     await expect(page.locator('#modals')).toContainText('Детали ингредиента');
 
-    await page.mouse.click(5, 5);
+    const overlay = page.locator('#modals > div').last();
+    await overlay.click({ position: { x: 10, y: 10 } });
 
     await expect(page.locator('#modals')).toBeEmpty();
   });
@@ -141,7 +157,7 @@ test.describe('Страница «Конструктор»: сборка бур�
   }) => {
     await openConstructorPage(page);
 
-    await addIngredient(page, 0);
+    await addIngredient(page, /Краторная булка/);
 
     await expect(
       page.getByText(`${bun.name} (верх)`, { exact: true })
@@ -159,8 +175,8 @@ test.describe('Страница «Конструктор»: сборка бур�
   }) => {
     await openConstructorPage(page);
 
-    await addIngredient(page, 1);
-    await addIngredient(page, 1);
+    await addIngredient(page, /Биокотлета/);
+    await addIngredient(page, /Биокотлета/);
 
     const mainCard = page.getByRole('link', { name: /Биокотлета/ });
     await expect(mainCard.locator('.counter__num')).toHaveText('2');
@@ -182,8 +198,8 @@ test.describe('Страница «Конструктор»: оформление
     await setFakeTokens(page, context);
     await openConstructorPage(page, { authorized: true });
 
-    await addIngredient(page, 0);
-    await addIngredient(page, 1);
+    await addIngredient(page, /Краторная булка/);
+    await addIngredient(page, /Биокотлета/);
 
     const constructorSection = page.locator('section').filter({
       has: page.getByRole('button', { name: 'Оформить заказ' })
@@ -211,7 +227,7 @@ test.describe('Страница «Конструктор»: оформление
   }) => {
     await openConstructorPage(page);
 
-    await addIngredient(page, 0);
+    await addIngredient(page, /Краторная булка/);
     await page.getByRole('button', { name: 'Оформить заказ' }).click();
 
     await expect(page).toHaveURL(/\/login$/);

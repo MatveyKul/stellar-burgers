@@ -61,10 +61,21 @@ const initialState = {
   error: null
 };
 
+const clearCookies = () => {
+  document.cookie.split(';').forEach((cookie) => {
+    const name = cookie.split('=')[0].trim();
+
+    if (name) {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+  });
+};
+
 describe('user slice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    clearCookies();
   });
 
   test('возвращает начальное состояние', () => {
@@ -218,11 +229,18 @@ describe('user slice', () => {
       expect(getState(store).isLoading).toBe(true);
     });
 
-    test('очищает пользователя и токены при fulfilled', async () => {
+    test('очищает пользователя и оба токена при fulfilled', async () => {
       mockedLogoutApi.mockResolvedValue({ success: true });
-      localStorage.setItem('refreshToken', 'refresh-token');
 
       const store = createTestStore();
+      store.dispatch(getUser.fulfilled({ success: true, user }, 'request-id'));
+      localStorage.setItem('refreshToken', 'refresh-token');
+      document.cookie = 'accessToken=access-token; path=/';
+
+      expect(getState(store).user).toEqual(user);
+      expect(localStorage.getItem('refreshToken')).toBe('refresh-token');
+      expect(document.cookie).toContain('accessToken=access-token');
+
       await store.dispatch(logoutUser());
 
       expect(getState(store)).toEqual({
@@ -232,6 +250,7 @@ describe('user slice', () => {
         error: null
       });
       expect(localStorage.getItem('refreshToken')).toBeNull();
+      expect(document.cookie).not.toContain('accessToken=');
     });
 
     test('сохраняет ошибку при rejected', async () => {
